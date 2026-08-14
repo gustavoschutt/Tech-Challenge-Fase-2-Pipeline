@@ -1,0 +1,56 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🚀 1. Orquestrador - Pipeline Completo",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/orchestrator.py",
+      "args": ["--stage", "full"],
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "ℹ️ 2. Orquestrador - Help / Argumentos",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/orchestrator.py",
+      "args": ["--help"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "⚡ 3. Simulação Streaming (Pub/Sub)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/streaming/streaming_pipeline.py",
+      "args": ["simulate"],
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "🧪 4. Executar Testes Unitários (pytest)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests/", "-v"],
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "📄 5. Gerar Relatório PDF",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/generate_pdf_report.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    }
+  ]
+}

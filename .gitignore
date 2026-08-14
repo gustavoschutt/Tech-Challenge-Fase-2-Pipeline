@@ -19,5 +19,8 @@ htmlcov/
 
 # OS / IDE
 .DS_Store
-.vscode/
 .idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+
