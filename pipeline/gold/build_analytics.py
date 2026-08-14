@@ -5,7 +5,7 @@ Cria datasets prontos para dashboards, análises estatísticas e ML.
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -20,7 +20,7 @@ logger = logging.getLogger("gold.analytics")
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "tc-alfabetizacao")
 BUCKET_NAME = os.getenv("GCS_BUCKET", "tc-alfabetizacao-datalake")
 BQ_DATASET_GOLD = os.getenv("BQ_GOLD_DATASET", "gold_alfabetizacao")
-RUN_DATE = datetime.utcnow().strftime("%Y-%m-%d")
+RUN_DATE = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 SILVER_PREFIX = "silver"
 GOLD_PREFIX = "gold"
@@ -41,6 +41,13 @@ def read_silver(gcs_client: storage.Client, entity: str) -> pd.DataFrame:
     df = pd.read_parquet(local_path)
     logger.info(f"[silver/{entity}] {len(df)} registros")
     return df
+
+
+def calcular_status_meta(row) -> str:
+    """Classifica status da meta: ATINGIDA, NAO_ATINGIDA ou SEM_META."""
+    if pd.isna(row.get("meta_municipio")) or pd.isna(row.get("gap_vs_meta_municipio")):
+        return "SEM_META"
+    return "ATINGIDA" if row["gap_vs_meta_municipio"] >= 0 else "NAO_ATINGIDA"
 
 
 # ---------------------------------------------------------------------------
@@ -68,15 +75,10 @@ def build_indicador_municipio(
 
     df["gap_vs_meta_municipio"] = df["indicador_alfabetizacao"] - df["meta_municipio"]
     df["gap_vs_meta_nacional"] = df["indicador_alfabetizacao"] - df["meta_nacional"]
-    
-    def _calcular_status_meta(row):
-        if pd.isna(row.get("meta_municipio")) or pd.isna(row.get("gap_vs_meta_municipio")):
-            return "SEM_META"
-        return "ATINGIDA" if row["gap_vs_meta_municipio"] >= 0 else "NAO_ATINGIDA"
 
-    df["status_meta_municipio"] = df.apply(_calcular_status_meta, axis=1)
+    df["status_meta_municipio"] = df.apply(calcular_status_meta, axis=1)
 
-    df["_gold_timestamp"] = datetime.utcnow().isoformat()
+    df["_gold_timestamp"] = datetime.now(timezone.utc).isoformat()
     df["_gold_date"] = RUN_DATE
 
     logger.info(f"Gold indicador_municipio: {len(df)} registros")
@@ -127,7 +129,7 @@ def build_evolucao_uf(
     uf_agg = uf_agg.sort_values(["id_uf", "ano"])
     uf_agg["variacao_yoy"] = uf_agg.groupby("id_uf")["indicador_medio"].diff().round(2)
 
-    uf_agg["_gold_timestamp"] = datetime.utcnow().isoformat()
+    uf_agg["_gold_timestamp"] = datetime.now(timezone.utc).isoformat()
     logger.info(f"Gold evolucao_uf: {len(uf_agg)} registros")
     return uf_agg
 
@@ -166,7 +168,7 @@ def build_painel_nacional(
         nacional["indicador_medio_nacional"] - nacional["meta_nacional"]
     ).round(2)
 
-    nacional["_gold_timestamp"] = datetime.utcnow().isoformat()
+    nacional["_gold_timestamp"] = datetime.now(timezone.utc).isoformat()
     logger.info(f"Gold painel_nacional: {len(nacional)} registros")
     return nacional
 
@@ -203,7 +205,7 @@ def build_ml_features(
     available = [c for c in feature_cols if c in df.columns]
     df = df[available].dropna(subset=["indicador_alfabetizacao"])
 
-    df["_gold_timestamp"] = datetime.utcnow().isoformat()
+    df["_gold_timestamp"] = datetime.now(timezone.utc).isoformat()
     logger.info(f"Gold ml_features: {len(df)} registros")
     return df
 

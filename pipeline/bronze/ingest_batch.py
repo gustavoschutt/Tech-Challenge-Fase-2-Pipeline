@@ -5,7 +5,7 @@ Ingestão de dados brutos das fontes educacionais (Base dos Dados / BigQuery)
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -23,7 +23,7 @@ logger = logging.getLogger("bronze.batch")
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "tc-alfabetizacao")
 BUCKET_NAME = os.getenv("GCS_BUCKET", "tc-alfabetizacao-datalake")
 BQ_DATASET_BASE = "basedosdados"
-RUN_DATE = datetime.utcnow().strftime("%Y-%m-%d")
+RUN_DATE = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 QUERIES = {
     "indicador_alfabetizacao": """
@@ -129,7 +129,7 @@ def run_batch_ingestion():
             df = query_to_dataframe(bq_client, query)
 
             # Adiciona metadados de controle
-            df["_ingestion_timestamp"] = datetime.utcnow().isoformat()
+            df["_ingestion_timestamp"] = datetime.now(timezone.utc).isoformat()
             df["_source"] = "basedosdados"
             df["_batch_date"] = RUN_DATE
 

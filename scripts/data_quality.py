@@ -309,6 +309,27 @@ def run_quality_pipeline():
                 ],
             )
 
+    # Check de consistência entre camadas (Silver vs Gold)
+    try:
+        silver_ind = load_parquet_from_gcs(
+            gcs_client,
+            f"silver/indicador_alfabetizacao/processed_date={RUN_DATE}/",
+            "indicador_alfabetizacao",
+        )
+        gold_ind = load_parquet_from_gcs(
+            gcs_client,
+            f"gold/indicador_municipio/gold_date={RUN_DATE}/",
+            "indicador_municipio",
+        )
+        consistency_res = check_gold_silver_consistency(
+            gold_df=gold_ind,
+            silver_df=silver_ind,
+            entity="indicador_municipio",
+        )
+        runner.results.append(consistency_res)
+    except Exception as e:
+        logger.warning(f"Check de consistência Gold vs Silver não pôde ser executado: {e}")
+
     summary = runner.summary()
     logger.info(f"=== Resumo de Qualidade: {summary} ===")
 

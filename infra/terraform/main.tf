@@ -236,6 +236,59 @@ resource "google_bigquery_table" "painel_nacional" {
   deletion_protection = false
 }
 
+resource "google_bigquery_table" "evolucao_uf" {
+  dataset_id = google_bigquery_dataset.gold.dataset_id
+  table_id   = "evolucao_uf"
+
+  clustering = ["id_uf", "ano"]
+
+  schema = jsonencode([
+    { name = "id_uf",                        type = "STRING",  mode = "REQUIRED" },
+    { name = "sigla_uf",                     type = "STRING",  mode = "NULLABLE" },
+    { name = "nome_uf",                      type = "STRING",  mode = "NULLABLE" },
+    { name = "ano",                          type = "INTEGER", mode = "REQUIRED" },
+    { name = "indicador_medio",              type = "FLOAT",   mode = "NULLABLE" },
+    { name = "indicador_min",                type = "FLOAT",   mode = "NULLABLE" },
+    { name = "indicador_max",                type = "FLOAT",   mode = "NULLABLE" },
+    { name = "total_municipios",             type = "INTEGER", mode = "NULLABLE" },
+    { name = "matriculas_total",             type = "INTEGER", mode = "NULLABLE" },
+    { name = "municipios_meta_atingida",     type = "INTEGER", mode = "NULLABLE" },
+    { name = "meta_uf",                      type = "FLOAT",   mode = "NULLABLE" },
+    { name = "pct_municipios_meta_atingida", type = "FLOAT",   mode = "NULLABLE" },
+    { name = "variacao_yoy",                 type = "FLOAT",   mode = "NULLABLE" },
+    { name = "_gold_timestamp",              type = "STRING",  mode = "NULLABLE" },
+  ])
+
+  deletion_protection = false
+}
+
+resource "google_bigquery_table" "ml_features" {
+  dataset_id = google_bigquery_dataset.gold.dataset_id
+  table_id   = "ml_features"
+
+  clustering = ["sigla_uf", "ano"]
+
+  schema = jsonencode([
+    { name = "id_municipio",            type = "STRING",  mode = "REQUIRED" },
+    { name = "nome",                    type = "STRING",  mode = "NULLABLE" },
+    { name = "sigla_uf",                type = "STRING",  mode = "NULLABLE" },
+    { name = "ano",                     type = "INTEGER", mode = "REQUIRED" },
+    { name = "indicador_alfabetizacao", type = "FLOAT",   mode = "NULLABLE" },
+    { name = "indicador_lag1",          type = "FLOAT",   mode = "NULLABLE" },
+    { name = "indicador_lag2",          type = "FLOAT",   mode = "NULLABLE" },
+    { name = "tendencia",               type = "FLOAT",   mode = "NULLABLE" },
+    { name = "meta_municipio",          type = "FLOAT",   mode = "NULLABLE" },
+    { name = "meta_nacional",           type = "FLOAT",   mode = "NULLABLE" },
+    { name = "gap_vs_meta_municipio",   type = "FLOAT",   mode = "NULLABLE" },
+    { name = "gap_vs_meta_nacional",    type = "FLOAT",   mode = "NULLABLE" },
+    { name = "quantidade_matriculas",   type = "INTEGER", mode = "NULLABLE" },
+    { name = "meta_atingida",           type = "BOOLEAN", mode = "NULLABLE" },
+    { name = "_gold_timestamp",         type = "STRING",  mode = "NULLABLE" },
+  ])
+
+  deletion_protection = false
+}
+
 # -----------------------------------------------------------------------------
 # Pub/Sub – Streaming
 # -----------------------------------------------------------------------------
@@ -271,6 +324,123 @@ resource "google_pubsub_subscription" "events_sub" {
 
 resource "google_pubsub_topic" "dlq" {
   name = "alfabetizacao-events-dlq"
+}
+
+# -----------------------------------------------------------------------------
+# Cloud Functions – Processamento Serverless (FinOps: pay-per-use)
+# -----------------------------------------------------------------------------
+
+resource "google_storage_bucket" "functions_source" {
+  name                        = "${var.project_id}-functions-source"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = var.environment == "dev"
+}
+
+# Bucket Object contendo o código empacotado da pipeline
+resource "google_storage_bucket_object" "pipeline_source_zip" {
+  name   = "pipeline-source-v1.zip"
+  bucket = google_storage_bucket.functions_source.name
+  source = "${path.module}/source.zip" # Arquivo gerado no CI/CD
+}
+
+resource "google_cloudfunctions_function" "bronze_batch" {
+  name        = "run-bronze-batch"
+  description = "Executa a ingestão batch da camada Bronze"
+  runtime     = "python311"
+
+  available_memory_mb   = 512
+  source_archive_bucket = google_storage_bucket.functions_source.name
+  source_archive_object = google_storage_bucket_object.pipeline_source_zip.name
+  trigger_http          = true
+  timeout               = 540
+  entry_point           = "run_batch_ingestion_http"
+  service_account_email = google_service_account.pipeline_sa.email
+
+  environment_variables = {
+    GCP_PROJECT_ID = var.project_id
+    GCS_BUCKET     = google_storage_bucket.datalake.name
+  }
+}
+
+resource "google_cloudfunctions_function" "silver_transform" {
+  name        = "run-silver"
+  description = "Executa as transformações da camada Silver"
+  runtime     = "python311"
+
+  available_memory_mb   = 1024
+  source_archive_bucket = google_storage_bucket.functions_source.name
+  source_archive_object = google_storage_bucket_object.pipeline_source_zip.name
+  trigger_http          = true
+  timeout               = 540
+  entry_point           = "run_silver_http"
+  service_account_email = google_service_account.pipeline_sa.email
+
+  environment_variables = {
+    GCP_PROJECT_ID = var.project_id
+    GCS_BUCKET     = google_storage_bucket.datalake.name
+  }
+}
+
+resource "google_cloudfunctions_function" "gold_analytics" {
+  name        = "run-gold"
+  description = "Constrói os datasets analíticos da camada Gold"
+  runtime     = "python311"
+
+  available_memory_mb   = 1024
+  source_archive_bucket = google_storage_bucket.functions_source.name
+  source_archive_object = google_storage_bucket_object.pipeline_source_zip.name
+  trigger_http          = true
+  timeout               = 540
+  entry_point           = "run_gold_http"
+  service_account_email = google_service_account.pipeline_sa.email
+
+  environment_variables = {
+    GCP_PROJECT_ID = var.project_id
+    GCS_BUCKET     = google_storage_bucket.datalake.name
+    BQ_DATASET_GOLD = google_bigquery_dataset.gold.dataset_id
+  }
+}
+
+resource "google_cloudfunctions_function" "quality_check" {
+  name        = "run-quality"
+  description = "Executa validações de qualidade de dados"
+  runtime     = "python311"
+
+  available_memory_mb   = 512
+  source_archive_bucket = google_storage_bucket.functions_source.name
+  source_archive_object = google_storage_bucket_object.pipeline_source_zip.name
+  trigger_http          = true
+  timeout               = 300
+  entry_point           = "run_quality_http"
+  service_account_email = google_service_account.pipeline_sa.email
+
+  environment_variables = {
+    GCP_PROJECT_ID = var.project_id
+    GCS_BUCKET     = google_storage_bucket.datalake.name
+  }
+}
+
+resource "google_cloudfunctions_function" "stream_consumer" {
+  name        = "stream-processor"
+  description = "Processa eventos Pub/Sub em tempo quase real"
+  runtime     = "python311"
+
+  available_memory_mb   = 256
+  source_archive_bucket = google_storage_bucket.functions_source.name
+  source_archive_object = google_storage_bucket_object.pipeline_source_zip.name
+  entry_point           = "process_pubsub_event"
+  service_account_email = google_service_account.pipeline_sa.email
+
+  event_trigger {
+    event_type = "google.pubsub.topic.publish"
+    resource   = google_pubsub_topic.events.name
+  }
+
+  environment_variables = {
+    GCP_PROJECT_ID = var.project_id
+    GCS_BUCKET     = google_storage_bucket.datalake.name
+  }
 }
 
 # -----------------------------------------------------------------------------
