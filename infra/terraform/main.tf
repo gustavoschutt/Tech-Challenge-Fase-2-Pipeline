@@ -174,10 +174,10 @@ resource "google_storage_bucket" "tfstate" {
 # -----------------------------------------------------------------------------
 
 resource "google_bigquery_dataset" "gold" {
-  dataset_id                  = "gold_alfabetizacao"
-  friendly_name               = "Gold – Alfabetização Analytics"
-  location                    = var.region
-  delete_contents_on_destroy  = var.environment == "dev"
+  dataset_id                 = "gold_alfabetizacao"
+  friendly_name              = "Gold – Alfabetização Analytics"
+  location                   = var.region
+  delete_contents_on_destroy = var.environment == "dev"
 
   labels = {
     environment = var.environment
@@ -197,21 +197,21 @@ resource "google_bigquery_table" "indicador_municipio" {
   clustering = ["sigla_uf", "ano"]
 
   schema = jsonencode([
-    { name = "id_municipio",             type = "STRING",  mode = "REQUIRED" },
-    { name = "nome",                     type = "STRING",  mode = "NULLABLE" },
-    { name = "sigla_uf",                 type = "STRING",  mode = "NULLABLE" },
-    { name = "nome_uf",                  type = "STRING",  mode = "NULLABLE" },
-    { name = "ano",                      type = "INTEGER", mode = "REQUIRED" },
-    { name = "indicador_alfabetizacao",  type = "FLOAT",   mode = "NULLABLE" },
-    { name = "quantidade_matriculas",    type = "INTEGER", mode = "NULLABLE" },
-    { name = "meta_municipio",           type = "FLOAT",   mode = "NULLABLE" },
-    { name = "meta_nacional",            type = "FLOAT",   mode = "NULLABLE" },
-    { name = "gap_vs_meta_municipio",    type = "FLOAT",   mode = "NULLABLE" },
-    { name = "gap_vs_meta_nacional",     type = "FLOAT",   mode = "NULLABLE" },
-    { name = "status_meta_municipio",    type = "STRING",  mode = "NULLABLE" },
-    { name = "meta_atingida",            type = "BOOLEAN", mode = "NULLABLE" },
-    { name = "_gold_date",               type = "DATE",    mode = "NULLABLE" },
-    { name = "_gold_timestamp",          type = "STRING",  mode = "NULLABLE" },
+    { name = "id_municipio", type = "STRING", mode = "REQUIRED" },
+    { name = "nome", type = "STRING", mode = "NULLABLE" },
+    { name = "sigla_uf", type = "STRING", mode = "NULLABLE" },
+    { name = "nome_uf", type = "STRING", mode = "NULLABLE" },
+    { name = "ano", type = "INTEGER", mode = "REQUIRED" },
+    { name = "indicador_alfabetizacao", type = "FLOAT", mode = "NULLABLE" },
+    { name = "quantidade_matriculas", type = "INTEGER", mode = "NULLABLE" },
+    { name = "meta_municipio", type = "FLOAT", mode = "NULLABLE" },
+    { name = "meta_nacional", type = "FLOAT", mode = "NULLABLE" },
+    { name = "gap_vs_meta_municipio", type = "FLOAT", mode = "NULLABLE" },
+    { name = "gap_vs_meta_nacional", type = "FLOAT", mode = "NULLABLE" },
+    { name = "status_meta_municipio", type = "STRING", mode = "NULLABLE" },
+    { name = "meta_atingida", type = "BOOLEAN", mode = "NULLABLE" },
+    { name = "_gold_date", type = "DATE", mode = "NULLABLE" },
+    { name = "_gold_timestamp", type = "STRING", mode = "NULLABLE" },
   ])
 
   deletion_protection = false
@@ -222,15 +222,15 @@ resource "google_bigquery_table" "painel_nacional" {
   table_id   = "painel_nacional"
 
   schema = jsonencode([
-    { name = "ano",                          type = "INTEGER", mode = "REQUIRED" },
-    { name = "indicador_medio_nacional",     type = "FLOAT",   mode = "NULLABLE" },
-    { name = "total_municipios",             type = "INTEGER", mode = "NULLABLE" },
-    { name = "municipios_meta_atingida",     type = "INTEGER", mode = "NULLABLE" },
-    { name = "total_matriculas",             type = "INTEGER", mode = "NULLABLE" },
-    { name = "meta_nacional",                type = "FLOAT",   mode = "NULLABLE" },
-    { name = "pct_municipios_alfabetizados", type = "FLOAT",   mode = "NULLABLE" },
-    { name = "gap_meta",                     type = "FLOAT",   mode = "NULLABLE" },
-    { name = "_gold_timestamp",              type = "STRING",  mode = "NULLABLE" },
+    { name = "ano", type = "INTEGER", mode = "REQUIRED" },
+    { name = "indicador_medio_nacional", type = "FLOAT", mode = "NULLABLE" },
+    { name = "total_municipios", type = "INTEGER", mode = "NULLABLE" },
+    { name = "municipios_meta_atingida", type = "INTEGER", mode = "NULLABLE" },
+    { name = "total_matriculas", type = "INTEGER", mode = "NULLABLE" },
+    { name = "meta_nacional", type = "FLOAT", mode = "NULLABLE" },
+    { name = "pct_municipios_alfabetizados", type = "FLOAT", mode = "NULLABLE" },
+    { name = "gap_meta", type = "FLOAT", mode = "NULLABLE" },
+    { name = "_gold_timestamp", type = "STRING", mode = "NULLABLE" },
   ])
 
   deletion_protection = false
@@ -243,20 +243,20 @@ resource "google_bigquery_table" "evolucao_uf" {
   clustering = ["id_uf", "ano"]
 
   schema = jsonencode([
-    { name = "id_uf",                        type = "STRING",  mode = "REQUIRED" },
-    { name = "sigla_uf",                     type = "STRING",  mode = "NULLABLE" },
-    { name = "nome_uf",                      type = "STRING",  mode = "NULLABLE" },
-    { name = "ano",                          type = "INTEGER", mode = "REQUIRED" },
-    { name = "indicador_medio",              type = "FLOAT",   mode = "NULLABLE" },
-    { name = "indicador_min",                type = "FLOAT",   mode = "NULLABLE" },
-    { name = "indicador_max",                type = "FLOAT",   mode = "NULLABLE" },
-    { name = "total_municipios",             type = "INTEGER", mode = "NULLABLE" },
-    { name = "matriculas_total",             type = "INTEGER", mode = "NULLABLE" },
-    { name = "municipios_meta_atingida",     type = "INTEGER", mode = "NULLABLE" },
-    { name = "meta_uf",                      type = "FLOAT",   mode = "NULLABLE" },
-    { name = "pct_municipios_meta_atingida", type = "FLOAT",   mode = "NULLABLE" },
-    { name = "variacao_yoy",                 type = "FLOAT",   mode = "NULLABLE" },
-    { name = "_gold_timestamp",              type = "STRING",  mode = "NULLABLE" },
+    { name = "id_uf", type = "STRING", mode = "REQUIRED" },
+    { name = "sigla_uf", type = "STRING", mode = "NULLABLE" },
+    { name = "nome_uf", type = "STRING", mode = "NULLABLE" },
+    { name = "ano", type = "INTEGER", mode = "REQUIRED" },
+    { name = "indicador_medio", type = "FLOAT", mode = "NULLABLE" },
+    { name = "indicador_min", type = "FLOAT", mode = "NULLABLE" },
+    { name = "indicador_max", type = "FLOAT", mode = "NULLABLE" },
+    { name = "total_municipios", type = "INTEGER", mode = "NULLABLE" },
+    { name = "matriculas_total", type = "INTEGER", mode = "NULLABLE" },
+    { name = "municipios_meta_atingida", type = "INTEGER", mode = "NULLABLE" },
+    { name = "meta_uf", type = "FLOAT", mode = "NULLABLE" },
+    { name = "pct_municipios_meta_atingida", type = "FLOAT", mode = "NULLABLE" },
+    { name = "variacao_yoy", type = "FLOAT", mode = "NULLABLE" },
+    { name = "_gold_timestamp", type = "STRING", mode = "NULLABLE" },
   ])
 
   deletion_protection = false
@@ -269,21 +269,21 @@ resource "google_bigquery_table" "ml_features" {
   clustering = ["sigla_uf", "ano"]
 
   schema = jsonencode([
-    { name = "id_municipio",            type = "STRING",  mode = "REQUIRED" },
-    { name = "nome",                    type = "STRING",  mode = "NULLABLE" },
-    { name = "sigla_uf",                type = "STRING",  mode = "NULLABLE" },
-    { name = "ano",                     type = "INTEGER", mode = "REQUIRED" },
-    { name = "indicador_alfabetizacao", type = "FLOAT",   mode = "NULLABLE" },
-    { name = "indicador_lag1",          type = "FLOAT",   mode = "NULLABLE" },
-    { name = "indicador_lag2",          type = "FLOAT",   mode = "NULLABLE" },
-    { name = "tendencia",               type = "FLOAT",   mode = "NULLABLE" },
-    { name = "meta_municipio",          type = "FLOAT",   mode = "NULLABLE" },
-    { name = "meta_nacional",           type = "FLOAT",   mode = "NULLABLE" },
-    { name = "gap_vs_meta_municipio",   type = "FLOAT",   mode = "NULLABLE" },
-    { name = "gap_vs_meta_nacional",    type = "FLOAT",   mode = "NULLABLE" },
-    { name = "quantidade_matriculas",   type = "INTEGER", mode = "NULLABLE" },
-    { name = "meta_atingida",           type = "BOOLEAN", mode = "NULLABLE" },
-    { name = "_gold_timestamp",         type = "STRING",  mode = "NULLABLE" },
+    { name = "id_municipio", type = "STRING", mode = "REQUIRED" },
+    { name = "nome", type = "STRING", mode = "NULLABLE" },
+    { name = "sigla_uf", type = "STRING", mode = "NULLABLE" },
+    { name = "ano", type = "INTEGER", mode = "REQUIRED" },
+    { name = "indicador_alfabetizacao", type = "FLOAT", mode = "NULLABLE" },
+    { name = "indicador_lag1", type = "FLOAT", mode = "NULLABLE" },
+    { name = "indicador_lag2", type = "FLOAT", mode = "NULLABLE" },
+    { name = "tendencia", type = "FLOAT", mode = "NULLABLE" },
+    { name = "meta_municipio", type = "FLOAT", mode = "NULLABLE" },
+    { name = "meta_nacional", type = "FLOAT", mode = "NULLABLE" },
+    { name = "gap_vs_meta_municipio", type = "FLOAT", mode = "NULLABLE" },
+    { name = "gap_vs_meta_nacional", type = "FLOAT", mode = "NULLABLE" },
+    { name = "quantidade_matriculas", type = "INTEGER", mode = "NULLABLE" },
+    { name = "meta_atingida", type = "BOOLEAN", mode = "NULLABLE" },
+    { name = "_gold_timestamp", type = "STRING", mode = "NULLABLE" },
   ])
 
   deletion_protection = false
@@ -294,7 +294,7 @@ resource "google_bigquery_table" "ml_features" {
 # -----------------------------------------------------------------------------
 
 resource "google_pubsub_topic" "events" {
-  name = "alfabetizacao-events"
+  name   = "alfabetizacao-events"
   labels = { environment = var.environment }
 
   # Retenção de 7 dias (FinOps: não guardar mais que necessário)
@@ -306,7 +306,7 @@ resource "google_pubsub_subscription" "events_sub" {
   topic = google_pubsub_topic.events.name
 
   ack_deadline_seconds       = 60
-  message_retention_duration = "86400s"  # 1 dia
+  message_retention_duration = "86400s" # 1 dia
   retain_acked_messages      = false
 
   retry_policy {
@@ -396,8 +396,8 @@ resource "google_cloudfunctions_function" "gold_analytics" {
   service_account_email = google_service_account.pipeline_sa.email
 
   environment_variables = {
-    GCP_PROJECT_ID = var.project_id
-    GCS_BUCKET     = google_storage_bucket.datalake.name
+    GCP_PROJECT_ID  = var.project_id
+    GCS_BUCKET      = google_storage_bucket.datalake.name
     BQ_DATASET_GOLD = google_bigquery_dataset.gold.dataset_id
   }
 }
@@ -450,7 +450,7 @@ resource "google_cloudfunctions_function" "stream_consumer" {
 resource "google_cloud_scheduler_job" "bronze_batch" {
   name             = "bronze-batch-daily"
   description      = "Dispara ingestão batch diária (Bronze)"
-  schedule         = "0 2 * * *"  # 02:00 UTC diariamente
+  schedule         = "0 2 * * *" # 02:00 UTC diariamente
   time_zone        = "America/Sao_Paulo"
   attempt_deadline = "3600s"
 
@@ -466,7 +466,7 @@ resource "google_cloud_scheduler_job" "bronze_batch" {
 resource "google_cloud_scheduler_job" "silver_batch" {
   name             = "silver-transform-daily"
   description      = "Dispara transformações Silver"
-  schedule         = "0 4 * * *"  # 04:00 UTC
+  schedule         = "0 4 * * *" # 04:00 UTC
   time_zone        = "America/Sao_Paulo"
   attempt_deadline = "3600s"
 
@@ -482,7 +482,7 @@ resource "google_cloud_scheduler_job" "silver_batch" {
 resource "google_cloud_scheduler_job" "gold_batch" {
   name             = "gold-analytics-daily"
   description      = "Constrói camada Gold analítica"
-  schedule         = "0 6 * * *"  # 06:00 UTC
+  schedule         = "0 6 * * *" # 06:00 UTC
   time_zone        = "America/Sao_Paulo"
   attempt_deadline = "3600s"
 
@@ -528,7 +528,7 @@ resource "google_monitoring_alert_policy" "pipeline_errors" {
   conditions {
     display_name = "Pipeline error rate elevada"
     condition_threshold {
-      filter          = "metric.type=\"${METRIC_PREFIX}/pipeline_errors_total\""
+      filter          = "metric.type=\"${local.METRIC_PREFIX}/pipeline_errors_total\""
       duration        = "60s"
       comparison      = "COMPARISON_GT"
       threshold_value = 5
@@ -552,7 +552,7 @@ resource "google_monitoring_alert_policy" "quality_degradation" {
   conditions {
     display_name = "Pass rate abaixo de 80%"
     condition_threshold {
-      filter          = "metric.type=\"${METRIC_PREFIX}/quality_pass_rate\""
+      filter          = "metric.type=\"${local.METRIC_PREFIX}/quality_pass_rate\""
       duration        = "300s"
       comparison      = "COMPARISON_LT"
       threshold_value = 80
