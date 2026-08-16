@@ -254,17 +254,19 @@ A camada Gold (`ml_features`) foi projetada como **feature store** para modelos 
 
 4. **Políticas públicas baseadas em dados**: o painel nacional e a tabela de evolução por UF permitem monitorar o progresso em direção à meta 2030 e simular o impacto de intervenções.
 
-### Features disponíveis na Gold `ml_features`
+### Features disponíveis na Gold `ml_features` (Data Leakage Free)
 
-| Feature | Descrição |
-|---|---|
-| `indicador_alfabetizacao` | Percentual atual de alunos alfabetizados |
-| `indicador_lag1`, `lag2` | Indicadores dos 2 anos anteriores |
-| `tendencia` | Variação ano a ano |
-| `gap_vs_meta_municipio` | Distância da meta municipal |
-| `gap_vs_meta_nacional` | Distância da meta nacional |
-| `quantidade_matriculas` | Volume de matrículas |
-| `meta_atingida` | Flag binária (target para classificação) |
+| Feature | Descrição | Origem / Tipo |
+|---|---|---|
+| `indicador_lag1` | Indicador do ano anterior ($t-1$) | Histórico / Preditivo |
+| `indicador_lag2` | Indicador de 2 anos anteriores ($t-2$) | Histórico / Preditivo |
+| `tendencia_historica` | Variação real entre os anos anteriores ($t-1 - t-2$) | Histórico / Preditivo |
+| `gap_historico_vs_meta_municipio` | Distância do indicador anterior ($t-1$) vs meta | Histórico / Preditivo |
+| `gap_historico_vs_meta_nacional` | Distância do indicador anterior ($t-1$) vs meta Brasil | Histórico / Preditivo |
+| `quantidade_matriculas` | Volume total de matrículas no município | Contextual |
+| `meta_municipio`, `meta_nacional` | Metas oficiais pactuadas | Contextual |
+| `indicador_alfabetizacao` | Percentual de alfabetização no ano $t$ | **Target Contínuo** (Regressão) |
+| `meta_atingida` | Flag booleana se a meta foi atingida no ano $t$ | **Target Binário** (Classificação) |
 
 ---
 
@@ -275,24 +277,35 @@ tc-fase2/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                   # Pipeline de CI/CD (lint, testes, deploy)
+├── sql/                             # Scripts SQL Nativos para BigQuery
+│   ├── 00_create_datasets.sql       # DDL dos 3 datasets Medalhão (bronze, silver, gold)
+│   ├── 01_bronze_ingestion.sql      # Ingestão das 7 tabelas oficiais da Base dos Dados
+│   ├── 02_silver_transformations.sql# Limpeza, desduplicação e ponto de corte SAEB 743 pts
+│   ├── 03_gold_analytics.sql        # Tabelas analíticas particionadas e clusterizadas
+│   ├── 04_gold_ml_features.sql      # Feature Store sem Data Leakage para ML
+│   └── 05_bigquery_ml_model.sql     # Modelo preditivo nativo em BigQuery ML
 ├── pipeline/
 │   ├── bronze/
-│   │   └── ingest_batch.py          # Ingestão batch do Base dos Dados
+│   │   └── ingest_batch.py          # Ingestão batch via BigQuery SDK / GCS
 │   ├── silver/
-│   │   └── transform.py             # Limpeza, padronização e integração
+│   │   └── transform.py             # Limpeza, padronização, regras SAEB e micro-batch
 │   └── gold/
-│       └── build_analytics.py       # Construção dos datasets analíticos
+│       └── build_analytics.py       # Datasets analíticos e feature store
 ├── streaming/
-│   └── streaming_pipeline.py        # Producer + Consumer Pub/Sub
+│   └── streaming_pipeline.py        # Producer + Consumer Pub/Sub com DLQ
 ├── monitoring/
-│   └── monitoring.py                # Métricas, health checks, run logger
+│   └── monitoring.py                # Métricas Cloud Monitoring, health checks, audit trail
 ├── scripts/
-│   └── data_quality.py              # Framework de validação de qualidade
+│   └── data_quality.py              # Framework de qualidade (6 checks + consistência)
 ├── infra/
 │   └── terraform/
-│       └── main.tf                  # Infraestrutura GCP como código
-├── tests/
-│   └── test_silver.py               # Testes unitários
+│       └── main.tf                  # Infraestrutura GCP completa como código (IaC)
+├── tests/                           # 49 Testes unitários com mocks
+│   ├── test_bronze.py
+│   ├── test_silver.py
+│   ├── test_gold.py
+│   ├── test_quality.py
+│   └── test_streaming.py
 ├── orchestrator.py                  # Orquestrador principal da pipeline
 ├── requirements.txt
 └── README.md

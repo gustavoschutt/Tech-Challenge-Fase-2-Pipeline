@@ -151,9 +151,18 @@ class TestBuildMLFeatures:
         ml_df = build_ml_features(ind_gold)
 
         assert "indicador_lag1" in ml_df.columns
-        assert "tendencia" in ml_df.columns
+        assert "indicador_lag2" in ml_df.columns
+        assert "tendencia_historica" in ml_df.columns
+        assert "gap_historico_vs_meta_municipio" in ml_df.columns
 
-        # Para SP (3550308) em 2023 (80.0): lag1=70.0 (2022) -> tendencia = 80 - 70 = 10.0
+        # Para SP (3550308) em 2023 (80.0):
+        # lag1 = 70.0 (2022), lag2 = 60.0 (2021) -> tendencia_historica = 70 - 60 = 10.0
+        # gap_historico_vs_meta = 70 - 75 = -5.0
         sp_2023 = ml_df[(ml_df["id_municipio"] == "3550308") & (ml_df["ano"] == 2023)].iloc[0]
         assert sp_2023["indicador_lag1"] == pytest.approx(70.0)
-        assert sp_2023["tendencia"] == pytest.approx(10.0)
+        assert sp_2023["indicador_lag2"] == pytest.approx(60.0)
+        assert sp_2023["tendencia_historica"] == pytest.approx(10.0)
+        assert sp_2023["gap_historico_vs_meta_municipio"] == pytest.approx(-5.0)
+        # O indicador do ano atual (80.0) e meta_atingida (True) estão disponíveis apenas como target
+        assert sp_2023["indicador_alfabetizacao"] == pytest.approx(80.0)
+        assert sp_2023["meta_atingida"] == True

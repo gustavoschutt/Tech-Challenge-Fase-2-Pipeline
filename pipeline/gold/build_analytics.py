@@ -181,29 +181,40 @@ def build_ml_features(
     indicador_municipio_gold: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Cria feature store para modelos de ML.
-    Cada linha = município + ano com features para predição.
+    Cria feature store para modelos de ML sem vazamento de dados (Data Leakage Free).
+    As features preditoras utilizam exclusivamente informações históricas (t-1, t-2).
+    A variável alvo (target) representa o resultado a ser previsto no ano t.
     """
-    logger.info("Construindo Gold: ml_features...")
+    logger.info("Construindo Gold: ml_features (sem Data Leakage)...")
 
     df = indicador_municipio_gold.copy()
 
-    # Lag features (último ano disponível como referência)
+    # Ordenação temporal por município
     df = df.sort_values(["id_municipio", "ano"])
+    
+    # Lags históricos
     df["indicador_lag1"] = df.groupby("id_municipio")["indicador_alfabetizacao"].shift(1)
     df["indicador_lag2"] = df.groupby("id_municipio")["indicador_alfabetizacao"].shift(2)
-    df["tendencia"] = df["indicador_alfabetizacao"] - df["indicador_lag1"]
+    
+    # Tendência histórica: variação entre t-1 e t-2 (puramente do passado)
+    df["tendencia_historica"] = df["indicador_lag1"] - df["indicador_lag2"]
+    
+    # Gap histórico do ano anterior vs meta pactuada
+    df["gap_historico_vs_meta_municipio"] = df["indicador_lag1"] - df["meta_municipio"]
+    df["gap_historico_vs_meta_nacional"] = df["indicador_lag1"] - df["meta_nacional"]
 
-    # Seleciona features relevantes
+    # Seleciona features e target
     feature_cols = [
-        "id_municipio", "nome", "sigla_uf", "ano",
-        "indicador_alfabetizacao", "indicador_lag1", "indicador_lag2",
-        "tendencia", "meta_municipio", "meta_nacional",
-        "gap_vs_meta_municipio", "gap_vs_meta_nacional",
-        "quantidade_matriculas", "meta_atingida",
+        "id_municipio", "nome", "sigla_uf", "id_uf", "ano",
+        "indicador_lag1", "indicador_lag2",
+        "tendencia_historica",
+        "gap_historico_vs_meta_municipio", "gap_historico_vs_meta_nacional",
+        "meta_municipio", "meta_nacional",
+        "quantidade_matriculas",
+        "indicador_alfabetizacao", "meta_atingida",
     ]
     available = [c for c in feature_cols if c in df.columns]
-    df = df[available].dropna(subset=["indicador_alfabetizacao"])
+    df = df[available].dropna(subset=["indicador_lag1"]).copy()
 
     df["_gold_timestamp"] = datetime.now(timezone.utc).isoformat()
     logger.info(f"Gold ml_features: {len(df)} registros")
