@@ -5,7 +5,7 @@
 -- para prever a probabilidade de um município atingir a meta de alfabetização.
 -- =============================================================================
 
--- 1. Treinamento do Modelo de Regressão Logística / Boosted Trees para Classificação
+-- 1. Treinamento do Modelo de Regressão Logística para Classificação
 CREATE OR REPLACE MODEL `gold_alfabetizacao.modelo_predicao_meta_alfabetizacao`
 OPTIONS (
   model_type = 'LOGISTIC_REG',
@@ -24,7 +24,6 @@ SELECT
   gap_historico_vs_meta_nacional,
   meta_municipio,
   meta_nacional,
-  quantidade_matriculas,
   -- Target
   meta_atingida
 FROM `gold_alfabetizacao.ml_features`
@@ -42,10 +41,10 @@ SELECT
   sigla_uf,
   ano,
   predicted_meta_atingida,
-  predicted_meta_atingida_probs[OFFSET(0)].prob AS probabilidade_meta_nao_atingida,
-  predicted_meta_atingida_probs[OFFSET(1)].prob AS probabilidade_meta_atingida
+  predicted_meta_atingida_probs[OFFSET(0)].prob AS prob_nao_atingir,
+  predicted_meta_atingida_probs[OFFSET(1)].prob AS prob_atingir
 FROM ML.PREDICT(
   MODEL `gold_alfabetizacao.modelo_predicao_meta_alfabetizacao`,
   (SELECT * FROM `gold_alfabetizacao.ml_features`)
 )
-ORDER BY probabilidade_meta_nao_atingida DESC;
+ORDER BY prob_nao_atingir DESC;

@@ -15,7 +15,7 @@ SELECT DISTINCT
 FROM `bronze_alfabetizacao.raw_ufs`
 WHERE id_uf IS NOT NULL;
 
--- 2. Silver: Municípios (com integridade referencial validada contra UFs)
+-- 2. Silver: Municípios
 CREATE OR REPLACE TABLE `silver_alfabetizacao.dim_municipios` AS
 SELECT DISTINCT
   CAST(m.id_municipio AS STRING) AS id_municipio,
@@ -24,77 +24,122 @@ SELECT DISTINCT
   CAST(m.id_uf AS STRING) AS id_uf,
   CURRENT_TIMESTAMP() AS _silver_timestamp
 FROM `bronze_alfabetizacao.raw_municipios` m
-INNER JOIN `silver_alfabetizacao.dim_ufs` u
-  ON m.sigla_uf = u.sigla_uf
+INNER JOIN `silver_alfabetizacao.dim_ufs` u ON UPPER(TRIM(m.sigla_uf)) = u.sigla_uf
 WHERE m.id_municipio IS NOT NULL;
 
--- 3. Silver: Metas Brasil
+-- 3. Silver: Metas Brasil (UNPIVOT 2024-2030)
 CREATE OR REPLACE TABLE `silver_alfabetizacao.fct_meta_brasil` AS
-SELECT DISTINCT
-  CAST(ano AS INT64) AS ano,
-  CAST(meta AS FLOAT64) AS meta_nacional,
+SELECT
+  CAST(SUBSTR(ano_meta, -4) AS INT64) AS ano,
+  CAST(meta_nacional AS FLOAT64) AS meta_nacional,
   CURRENT_TIMESTAMP() AS _silver_timestamp
 FROM `bronze_alfabetizacao.raw_meta_brasil`
-WHERE ano IS NOT NULL AND meta IS NOT NULL;
+UNPIVOT (
+  meta_nacional FOR ano_meta IN (
+    meta_alfabetizacao_2024,
+    meta_alfabetizacao_2025,
+    meta_alfabetizacao_2026,
+    meta_alfabetizacao_2027,
+    meta_alfabetizacao_2028,
+    meta_alfabetizacao_2029,
+    meta_alfabetizacao_2030
+  )
+)
+WHERE meta_nacional IS NOT NULL;
 
--- 4. Silver: Metas UF
+-- 4. Silver: Metas UF (UNPIVOT com CTE)
 CREATE OR REPLACE TABLE `silver_alfabetizacao.fct_meta_uf` AS
-SELECT DISTINCT
-  CAST(m.id_uf AS STRING) AS id_uf,
-  CAST(m.ano AS INT64) AS ano,
-  CAST(m.meta AS FLOAT64) AS meta_uf,
+WITH unpivoted AS (
+  SELECT
+    sigla_uf,
+    CAST(SUBSTR(ano_meta, -4) AS INT64) AS ano,
+    CAST(meta_uf AS FLOAT64) AS meta_uf
+  FROM `bronze_alfabetizacao.raw_meta_uf`
+  UNPIVOT (
+    meta_uf FOR ano_meta IN (
+      meta_alfabetizacao_2024,
+      meta_alfabetizacao_2025,
+      meta_alfabetizacao_2026,
+      meta_alfabetizacao_2027,
+      meta_alfabetizacao_2028,
+      meta_alfabetizacao_2029,
+      meta_alfabetizacao_2030
+    )
+  )
+  WHERE meta_uf IS NOT NULL
+)
+SELECT
+  u.id_uf,
+  UPPER(TRIM(m.sigla_uf)) AS sigla_uf,
+  m.ano,
+  m.meta_uf,
   CURRENT_TIMESTAMP() AS _silver_timestamp
-FROM `bronze_alfabetizacao.raw_meta_uf` m
-INNER JOIN `silver_alfabetizacao.dim_ufs` u
-  ON CAST(m.id_uf AS STRING) = u.id_uf
-WHERE m.ano IS NOT NULL AND m.meta IS NOT NULL;
+FROM unpivoted m
+LEFT JOIN `silver_alfabetizacao.dim_ufs` u ON UPPER(TRIM(m.sigla_uf)) = u.sigla_uf;
 
--- 5. Silver: Metas Município
+-- 5. Silver: Metas Município (UNPIVOT com CTE)
 CREATE OR REPLACE TABLE `silver_alfabetizacao.fct_meta_municipio` AS
-SELECT DISTINCT
-  CAST(m.id_municipio AS STRING) AS id_municipio,
-  CAST(m.ano AS INT64) AS ano,
-  CAST(m.meta AS FLOAT64) AS meta_municipio,
+WITH unpivoted AS (
+  SELECT
+    CAST(id_municipio AS STRING) AS id_municipio,
+    CAST(SUBSTR(ano_meta, -4) AS INT64) AS ano,
+    CAST(meta_municipio AS FLOAT64) AS meta_municipio
+  FROM `bronze_alfabetizacao.raw_meta_municipio`
+  UNPIVOT (
+    meta_municipio FOR ano_meta IN (
+      meta_alfabetizacao_2024,
+      meta_alfabetizacao_2025,
+      meta_alfabetizacao_2026,
+      meta_alfabetizacao_2027,
+      meta_alfabetizacao_2028,
+      meta_alfabetizacao_2029,
+      meta_alfabetizacao_2030
+    )
+  )
+  WHERE meta_municipio IS NOT NULL
+)
+SELECT
+  m.id_municipio,
+  m.ano,
+  m.meta_municipio,
   CURRENT_TIMESTAMP() AS _silver_timestamp
-FROM `bronze_alfabetizacao.raw_meta_municipio` m
-INNER JOIN `silver_alfabetizacao.dim_municipios` mun
-  ON CAST(m.id_municipio AS STRING) = mun.id_municipio
-WHERE m.ano IS NOT NULL AND m.meta IS NOT NULL;
+FROM unpivoted m
+INNER JOIN `silver_alfabetizacao.dim_municipios` mun ON m.id_municipio = mun.id_municipio;
 
--- 6. Silver: Alunos (Aplica Ponto de Corte de 743 pontos SAEB)
+-- 6. Silver: Alunos (Ponto de corte 743 pontos SAEB)
 CREATE OR REPLACE TABLE `silver_alfabetizacao.fct_alunos_saeb` AS
 SELECT
   CAST(a.ano AS INT64) AS ano,
   CAST(a.id_municipio AS STRING) AS id_municipio,
   CAST(a.proficiencia AS FLOAT64) AS proficiencia_saeb,
-  -- Ponto de corte do Indicador Criança Alfabetizada: 743 pontos
   IF(CAST(a.proficiencia AS FLOAT64) >= 743.0, TRUE, FALSE) AS aluno_alfabetizado,
   CURRENT_TIMESTAMP() AS _silver_timestamp
 FROM `bronze_alfabetizacao.raw_alunos` a
-INNER JOIN `silver_alfabetizacao.dim_municipios` mun
-  ON CAST(a.id_municipio AS STRING) = mun.id_municipio
+INNER JOIN `silver_alfabetizacao.dim_municipios` mun ON CAST(a.id_municipio AS STRING) = mun.id_municipio
 WHERE a.proficiencia IS NOT NULL;
 
 -- 7. Silver: Indicador de Alfabetização Consolidado
 CREATE OR REPLACE TABLE `silver_alfabetizacao.fct_indicador_alfabetizacao` AS
-WITH deduplicated AS (
+WITH raw_ind AS (
   SELECT
-    CAST(i.id_municipio AS STRING) AS id_municipio,
-    CAST(i.ano AS INT64) AS ano,
-    CAST(i.indicador_alfabetizacao AS FLOAT64) AS indicador_alfabetizacao,
-    CAST(i.quantidade_matriculas AS INT64) AS quantidade_matriculas,
-    ROW_NUMBER() OVER (PARTITION BY i.id_municipio, i.ano ORDER BY i._ingestion_timestamp DESC) AS rn
-  FROM `bronze_alfabetizacao.raw_indicador_municipio` i
-  INNER JOIN `silver_alfabetizacao.dim_municipios` mun
-    ON CAST(i.id_municipio AS STRING) = mun.id_municipio
-  WHERE i.id_municipio IS NOT NULL AND i.ano IS NOT NULL
+    CAST(id_municipio AS STRING) AS id_municipio,
+    CAST(ano AS INT64) AS ano,
+    COALESCE(
+      SAFE_CAST(taxa_alfabetizacao AS FLOAT64),
+      SAFE_CAST(indicador_alfabetizacao AS FLOAT64)
+    ) AS indicador_alfabetizacao,
+    SAFE_CAST(quantidade_matriculas AS INT64) AS quantidade_matriculas,
+    ROW_NUMBER() OVER (PARTITION BY id_municipio, ano ORDER BY _ingestion_timestamp DESC) AS rn
+  FROM `bronze_alfabetizacao.raw_indicador_municipio`
+  WHERE id_municipio IS NOT NULL AND ano IS NOT NULL
 )
 SELECT
-  id_municipio,
-  ano,
-  indicador_alfabetizacao,
-  quantidade_matriculas,
-  IF(indicador_alfabetizacao >= 50.0, TRUE, FALSE) AS meta_atingida,
+  i.id_municipio,
+  i.ano,
+  i.indicador_alfabetizacao,
+  i.quantidade_matriculas,
+  IF(i.indicador_alfabetizacao >= 50.0, TRUE, FALSE) AS meta_atingida,
   CURRENT_TIMESTAMP() AS _silver_timestamp
-FROM deduplicated
-WHERE rn = 1;
+FROM raw_ind i
+INNER JOIN `silver_alfabetizacao.dim_municipios` mun ON i.id_municipio = mun.id_municipio
+WHERE i.rn = 1 AND i.indicador_alfabetizacao IS NOT NULL;

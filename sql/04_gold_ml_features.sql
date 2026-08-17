@@ -15,7 +15,6 @@ WITH lags AS (
     sigla_uf,
     id_uf,
     ano,
-    quantidade_matriculas,
     meta_municipio,
     meta_nacional,
     indicador_alfabetizacao,
@@ -40,10 +39,9 @@ SELECT
   ROUND(indicador_lag1 - meta_nacional, 2) AS gap_historico_vs_meta_nacional,
   meta_municipio,
   meta_nacional,
-  quantidade_matriculas,
   -- Variáveis Alvo (Ground Truth Targets para Supervised ML)
   indicador_alfabetizacao,
   meta_atingida,
   CURRENT_TIMESTAMP() AS _gold_timestamp
 FROM lags
-WHERE indicador_lag1 IS NOT NULL; -- Exige pelo menos histórico anterior para inferência/treinamento
+WHERE indicador_lag1 IS NOT NULL;
